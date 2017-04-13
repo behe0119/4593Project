@@ -78,7 +78,7 @@ typedef struct {
 	unsigned int regWB;			// register to write back to
 } MEMWB_PIPELINE_REG;
 
-int memory[1200];
+int memory[1200]; //told to have 1200 bytes
 int pc;
 
 int regFile[32];
@@ -106,7 +106,7 @@ void writeBack();
 void move_shadow_to_reg();
 
 void main (void) {
-	loadPrg(memory, regFile, &pc);
+	loadPrg(memory, regFile, &pc); //loads the program into memory, sets sp, fp, initial pc
 	//while (pc != 0) {
 		instructionFetch();
 		writeBack();
