@@ -6,8 +6,9 @@
  */
 
 #include <stdio.h>
+#include "loadPrg.h"
 
-void main() {
+void loadPrg(int * memAddr, int * regFile, int * pc) {
 
 	int prg1[] = {
 	0x00000bb8,	//	$sp = 3000
@@ -506,19 +507,20 @@ void main() {
 	};
 
 	int n = sizeof(prg1)/4;
-	printf("%d\n",n);
-	int memory[1200];
+	//printf("%d\n",n);
 
 	for (int i = 0; i < n; i++) {
-		memory[i] = prg1[i];
+		memAddr[i] = prg1[i];
 	}
 	printf("Program loaded\n");
 	//printf("%d\n",prg1[n-1]==memory[n-1]); //check that program loaded properly
 
-	int sp = memory[0];
-	int fp = memory[1];
-	int pc = memory[5];
+	regFile[29] = prg1[0]; //sp
+	regFile[30] = prg1[1]; //fp
+	*pc = prg1[5]; //pc
+
+	//printf("%x\n",*pc);
 
 
-
+	return;
 }
