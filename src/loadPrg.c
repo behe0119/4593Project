@@ -7,7 +7,7 @@
 
 #include <stdio.h>
 
-void main() {
+void loadPrg() {
 
 	int prg1[] = {
 	0x00000bb8,	//	$sp = 3000
