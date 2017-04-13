@@ -156,6 +156,9 @@ void instructionDecode() {
 		
 		shadow_IDEXreg.ALUop = 0x3;
 
+		if (shadow_IDEXreg.opCode == 3) {
+			regFile[31] = pc + 8;
+		}
 		pc = (pc && 0xF0000000) + (shadow_IDEXreg.address << 2);
 	}
 	else { //i type
