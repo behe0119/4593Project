@@ -3,7 +3,7 @@
 			Huan Nguyen and Ben Herman
 		ECEN 4593 Computer Organization Spring 2017
 **********************************************************/
-
+#include "loadPrg.h"
 #include <stdint.h>
 //r-type masks and shifts
 #define opcodeMask 		0xFC000000
@@ -78,13 +78,11 @@ typedef struct {
 	unsigned int regWB;			// register to write back to
 } MEMWB_PIPELINE_REG;
 
-int memory[10000];
+int memory[1200]; //told to have 1200 bytes
+int pc;
 
 int regFile[32];
 int lo,hi;
-
-int pc = 0;
-
 // Declare our shadow and actual pipeline registers: 
 
 IFID_PIPELINE_REG shadow_IFIDreg;
@@ -108,12 +106,16 @@ void writeBack();
 void move_shadow_to_reg();
 
 void main (void) {
-	instructionFetch();
-	writeBack();
-	instructionDecode();
-	//executeInstruction();
-	memoryAccess();
-	move_shadow_to_reg();
+	loadPrg(memory, regFile, &pc); //loads the program into memory, sets sp, fp, initial pc
+	//while (pc != 0) {
+		instructionFetch();
+		writeBack();
+		instructionDecode();
+		//executeInstruction();
+		memoryAccess();
+		move_shadow_to_reg();
+	//}
+	//	printf("%x\n",pc);
 }
 
 void instructionFetch() {
@@ -153,6 +155,8 @@ void instructionDecode() {
 		shadow_IDEXreg.address = (IFIDreg.instruction & addrMask);	
 		
 		shadow_IDEXreg.ALUop = 0x3;
+
+		pc = (pc && 0xF0000000) + (shadow_IDEXreg.address << 2);
 	}
 	else { //i type
 		// I-instruction format; if branch, ALUop = 1, if lw/sw, 0.
