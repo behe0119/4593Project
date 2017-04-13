@@ -3,7 +3,7 @@
 			Huan Nguyen and Ben Herman
 		ECEN 4593 Computer Organization Spring 2017
 **********************************************************/
-#include "loadPrg.h"
+
 #include <stdint.h>
 //r-type masks and shifts
 #define opcodeMask 		0xFC000000
@@ -39,6 +39,7 @@ typedef struct {
 	uint8_t ALUop;				// multi-bit control lines
 	uint8_t ALU_CI;				//4-bit ALU control input
 	uint8_t opCode;				// opCode
+	uint8_t func;				// funct field
 	unsigned int pcNext;		// value of next PC address
 	unsigned int regRSvalue;	// VALUE of register RS (not its decimal label)
 	unsigned int regRTvalue;	// value of register RT
@@ -78,11 +79,13 @@ typedef struct {
 	unsigned int regWB;			// register to write back to
 } MEMWB_PIPELINE_REG;
 
-int memory[1200]; //told to have 1200 bytes
-int pc;
+int memory[10000];
 
 int regFile[32];
 int lo,hi;
+
+int pc = 0;
+
 // Declare our shadow and actual pipeline registers: 
 
 IFID_PIPELINE_REG shadow_IFIDreg;
@@ -106,16 +109,12 @@ void writeBack();
 void move_shadow_to_reg();
 
 void main (void) {
-	loadPrg(memory, regFile, &pc); //loads the program into memory, sets sp, fp, initial pc
-	//while (pc != 0) {
-		instructionFetch();
-		writeBack();
-		instructionDecode();
-		//executeInstruction();
-		memoryAccess();
-		move_shadow_to_reg();
-	//}
-	//	printf("%x\n",pc);
+	instructionFetch();
+	writeBack();
+	instructionDecode();
+	//executeInstruction();
+	memoryAccess();
+	move_shadow_to_reg();
 }
 
 void instructionFetch() {
@@ -155,8 +154,6 @@ void instructionDecode() {
 		shadow_IDEXreg.address = (IFIDreg.instruction & addrMask);	
 		
 		shadow_IDEXreg.ALUop = 0x3;
-
-		pc = (pc && 0xF0000000) + (shadow_IDEXreg.address << 2);
 	}
 	else { //i type
 		// I-instruction format; if branch, ALUop = 1, if lw/sw, 0.
@@ -248,14 +245,151 @@ void instructionDecode() {
 
 shadow_IDEXreg.opCode = IFIDreg.instruction & opcodeMask;
 }
+
+void executeInstruction() {
+	switch(IDEXreg.opCode) { // determine R-format or specific instruction
+
+	case 0: // instruction is R-format
+		switch(IDEXreg.func) { // determine which R-format function
+
+		case 0x00: // nop
+			// Do nothing
+			break;
+
+		case 0x20: // add: R[rd] = R[rs] + R[rt]
+			shadow_EXMEMreg.resultALU = IDEXreg.regRSvalue + IDEXreg.regRTvalue;
+			shadow_EXMEMreg.regWB = IDEXreg.regRD;
+			break;
+
+		case 0x21: // addu: R[rd] = R[rs] + R[rt]
+			shadow_EXMEMreg.resultALU = IDEXreg.regRSvalue + IDEXreg.regRTvalue;
+			shadow_EXMEMreg.regWB = IDEXreg.regRD;
+			break;
+
+		case 0x24: // and: R[rd] = R[rs] & R[rt]
+			shadow_EXMEMreg.resultALU = IDEXreg.regRSvalue & IDEXreg.regRTvalue;
+			shadow_EXMEMreg.regWB = IDEXreg.regRD;
+			break;
+
+		case 0x08: // jr: PC = R[rs]
+			// TODO set pcNext or actual PC?
+			break;
+
+		case 0x0b: // movn: if rt != 0, move rs into rd
+			if (IDEXreg.regRTvalue != 0) {
+				shadow_EXMEMreg.resultALU = IDEXreg.regRSvalue;
+				shadow_EXMEMreg.regWB = IDEXreg.regRD;
+			}
+			// Else: do nothing
+			break;
+
+		case 0x0a: // movz: if rt = 0, move rs into rd
+			if (IDEXreg.regRTvalue ==0 ) {
+				shadow_EXMEMreg.resultALU = IDEXreg.regRSvalue;
+				shadow_EXMEMreg.regWB = IDEXreg.regRD;
+			}
+			// Else: do nothing
+			break;
+
+		case 0x27: // nor: R[rd] = ~(R[rs] | R[rt])
+			shadow_EXMEMreg.resultALU = ~(IDEXreg.regRSvalue & IDEXreg.regRTvalue);
+			shadow_EXMEMreg.regWB = IDEXreg.regRD;
+			break;
+
+		case 0x25: // or: R[rd] = R[rs] | R[rt]
+			shadow_EXMEMreg.resultALU = IDEXreg.regRSvalue | IDEXreg.regRTvalue;
+			shadow_EXMEMreg.regWB = IDEXreg.regRD;
+			break;
+
+		case 0x00: // sll: rd <- rt << shamt
+			// Shift rt's value left by shamt
+			shadow_EXMEMreg.resultALU = IDEXreg.regRTvalue << IDEXreg.shamt;
+			// The write-back register is rd from previous stage
+			shadow_EXMEMreg.regWB = IDEXreg.regRD;
+			break;
+
+		case 0x2a: // slt: rd <- (rs < rt)
+			if (IDEXreg.regRSvalue < IDEXreg.regRTvalue)
+				shadow_EXMEMreg.resultALU = 1;
+			else shadow_EXMEMreg.resultALU = 0;
+			shadow_EXMEMreg.regWB = IDEXreg.regRD; // Write the result to rd
+			break;
+
+		case 0x2b: // sltu: rd <- (rs_unsigned < rt_unsigned)
+			if ( ((uint32_t)IDEXreg.regRSvalue) < ((uint32_t)IDEXreg.regRTvalue) )
+				shadow_EXMEMreg.resultALU = 1;
+			else shadow_EXMEMreg.resultALU = 0;
+			shadow_EXMEMreg.regWB = IDEXreg.regRD;
+			break;
+
+		case 0x02: // srl: rd <- rt >> shamt
+			// Shift rt's value right by shamt
+			shadow_EXMEMreg.resultALU = IDEXreg.regRTvalue >> IDEXreg.shamt;
+			// Write-back register is rd from previous stage
+			shadow_EXMEMreg.regWB = IDEXreg.regRD;
+			break;
+
+		case 0x22: // sub: rd <- rs - rt
+			// TODO handle overflow
+			// Subtract rt from rs
+			shadow_EXMEMreg.resultALU = IDEXreg.regRSvalue - IDEXreg.regRTvalue;
+			// Write-back register is rd
+			shadow_EXMEMreg.regWB = IDEXreg.regRD;
+			break;
+
+		case 0x23: // subu: rd <- rs - rt
+			// Name is a misnomer; the values aren't unsigned - the instruction is
+			// intended for unsigned arithmetic, such as address arithmetic or arith-
+			// metic environments that ignore overflow, such as C language arithmetic.
+
+			// Subtract rt from rs
+			shadow_EXMEMreg.resultALU = IDEXreg.regRSvalue - IDEXreg.regRTvalue;
+			// Write-back register is rd
+			shadow_EXMEMreg.regWB = IDEXreg.regRD;
+			break;
+
+		case 0x26: // xor: rd <- rs XOR rt
+			// XOR rs and rt, result into resultALU in pipeline reg
+			shadow_EXMEMreg.resultALU = IDEXreg.regRSvalue ^ IDEXreg.regRTvalue;
+			// Write-back reg is rd
+			shadow_EXMEMreg.regWB = IDEXreg.regRD;
+			break;
+		} // end R-format funct switch
+
+	case 0x08: // addi: rt <- rs + sign_ext_immediate
+		// add sign-extended immediate to rs, result into shadow pipeline reg
+		shadow_EXMEMreg.resultALU = IDEXreg.regRSvalue + IDEXreg.signExtImm;
+		// Write-back reg is rt
+		shadow_EXMEMreg.regWB = IDEXreg.regRT;
+		break;
+
+	case 0x09: // addiu: rt <- rs + sign_ext_immediate
+		// TODO see Evernote
+		// Do the operation
+		shadow_EXMEMreg.resultALU = IDEXreg.regRSvalue + IDEXreg.signExtImm;
+		// Write-back reg is rt
+		shadow_EXMEMreg.regWB = IDEXreg.regRT;
+		break;
+
+	case 0x0c: // andi: rt <- rs & zero_ext_immediate
+		// Perform operation
+		shadow_EXMEMreg.resultALU = IDEXreg.regRSvalue & IDEXreg.zeroExtImm;
+		// Write-back reg is rt
+		shadow_EXMEMreg.regWB = IDEXreg.regRT;
+		break;
+
+	case 0x0e: // xori: rt <- rs XOR zero_ext_immediate
+		// Perform operation
+		shadow_EXMEMreg.resultALU = IDEXreg.regRSvalue ^ IDEXreg.zeroExtImm;
+		// Write-back reg is rt
+		shadow_EXMEMreg.regWB = IDEXreg.regRT;
+	} // end opcode switch
+}
+
 /*
 void executeInstruction() {
 	switch(IDEXreg.ALUop) {
 		
-		case : // add: R[rd] = R[rs] + R[rt]
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue + IDEX_reg.regRTvalue;
-			shadow_EXMEMreg.regWB = IDEXreg.regRD;
-			break;
 		
 		case : // addi: R[rt] = = R[rs] + signExtImm 
 			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue+ IDEX_reg.signExtImm;
