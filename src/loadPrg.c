@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include "loadPrg.h"
 
-
 void loadPrg(int * memAddr, int * regFile, int * pc) {
 
 	int prg1[] = {
