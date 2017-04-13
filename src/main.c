@@ -155,6 +155,8 @@ void instructionDecode() {
 		shadow_IDEXreg.address = (IFIDreg.instruction & addrMask);	
 		
 		shadow_IDEXreg.ALUop = 0x3;
+
+		pc = (pc && 0xF0000000) + (shadow_IDEXreg.address << 2);
 	}
 	else { //i type
 		// I-instruction format; if branch, ALUop = 1, if lw/sw, 0.
