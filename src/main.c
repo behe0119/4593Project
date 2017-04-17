@@ -62,6 +62,7 @@ typedef struct {
 	unsigned int resultALU;		// result from ALU operation
 	unsigned int regRTvalue;	// VALUE of register RT	
 	unsigned int regWB;		// decimal label of register to write to
+	unsigned int regRD;			// register RD (not its value)
 	uint8_t memToReg;				// control: assert when loading data from mem to reg
 	unsigned int address;
 }  EXMEM_PIPELINE_REG;
@@ -76,6 +77,7 @@ typedef struct {
 	uint8_t memToReg;				// control: assert when loading from data memory to reg
 	unsigned int dataMemResult; // data loaded from memory
 	unsigned int resultALU;		// result from the ALU
+	unsigned int regRD;			// register RD (not its value)
 	unsigned int regWB;			// register to write back to
 } MEMWB_PIPELINE_REG;
 
@@ -252,6 +254,16 @@ shadow_IDEXreg.opCode = IFIDreg.instruction & opcodeMask;
 }
 
 void executeInstruction() {
+
+	if ((IDEXreg.regWrite && IDEXreg.regRD != 0) && (EXMEMreg.regRD == IDEXreg.regRS)) {
+		//shadow_IDEXreg.regRTvalue
+		//Forward here EX hazard
+		//ForwardA = 10;
+	}
+	if ((IDEXreg.regWrite && IDEXreg.regRD != 0) && (EXMEMreg.regRD == IDEXreg.regRT)) {
+		//Forward here EX hazard
+		//ForwardB = 10;
+	}
 	switch(IDEXreg.opCode) { // determine R-format or specific instruction
 
 	case 0: // instruction is R-format
@@ -391,170 +403,16 @@ void executeInstruction() {
 	} // end opcode switch
 }
 
-/*
-void executeInstruction() {
-	switch(IDEXreg.ALUop) {
-		
-		
-		case : // addi: R[rt] = = R[rs] + signExtImm 
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue+ IDEX_reg.signExtImm;
-			shadow_EXMEMreg.regWB = IDEXreg.regRT;
-			break;
-			
-		case : // addiu: R[rt] = R[rs] + signExtImm
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue + (unsigned int)IDEXreg.signExtImm;
-			shadow_EXMEMreg.regWB = IDEXreg.regRT;
-			break;
-			
-		case : // and: R[rd] = R[rs] & R[rt]
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue & IDEX_reg.regRTvalue;
-			shadow_EXMEMreg.regWB = IDEXreg.regRD;
-			break;
-		
-		case : //andi: R[rt] = R[rs] & ZeroExtImm
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue & IDEX_reg.zeroExtImm;
-			shadow_EXMEMreg.regWB = IDEXreg.regRT;
-			
-		case : // beq: if(R[rs] = R[rt]) PC = PC + 4 + BranchAddr
-			if (IDEX_reg.regRSvalue == IDEX_reg.regRTvalue) {
-				shadow_EXMEMreg.resultALU = IDEX_reg.pcNext + IDEX_reg.address;
-				shadow_EXMEMreg.pcNext = shadow_EXMEMreg.resultALU;
-			}
-			break;
-		case : // bne: if (R[rs] != R[rt]) PC = PC + 4 + BranchAddr
-			if (IDEX_reg.regRSvalue != IDEX_reg.regRTvalue) {
-				shadow_EXMEMreg.resultALU = IDEX_reg.pcNext + IDEX_reg.address;
-				shadow_EXMEMreg.pcNext = shadow_EXMEMreg.resultALU;
-			}
-			break;
-		case : // j: PC = JumpAddr
-			shadow_EXMEMreg.pcNext = IDEX_reg.address;
-			break;
-		case : // jal: R[31] = PC + 8; PC = JumpAddr
-			regFile[31] = IDEX_reg.pcNext + 2;
-			shadow_EXMEMreg.pcNext = IDEX_reg.address;  
-			break;
-		case : // jr: PC = R[rs]
-			shadow_EXMEMreg.pcNext = IDEX_reg.regRSvalue;
-			break;
-		case: // lbu: R[rt] = {24'b0,M[R[rs]+SignExtImm](7:0)}
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue + IDEX_reg.signExtImm;
-			shadow_EXMEMreg.regWB = IDEX_reg.regRT;
-			break;
-		case: // lhu: R[rt] = {16'b0,M[R[rs]+SignExtImm](15:0)}
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue + IDEX_reg.signExtImm;
-			shadow_EXMEMreg.regWB = IDEX_reg.regRT;
-			break;
-		case: // ll: R[rt] = M[R[rs]+SignExtImm]
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue + IDEX_reg.signExtImm;
-			shadow_EXMEMreg.regWB = IDEX_reg.regRT;
-			break;
-		case: // lui: R[rt] = {imm, 16'b0} 
-			shadow_EXMEMreg.resultALU = IDEX_reg.signExtImm & 0x0000FFFF;
-			break;
-		case: // lw: R[rt] = M[R[rs]+SignExtImm]
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue + IDEX_reg.signExtImm;
-			shadow_EXMEMreg.regWB = IDEX_reg.regRT;
-			break;
-		case: // nor: R[rd] = ~(R[rs]|R[rt])
-			shadow_EXMEMreg.resultALU = ~(IDEX_reg.regRSvalue | IDEX_reg.regRTvalue);
-			shadow_EXMEMreg.regWB = IDEX_reg.regRD;
-			break;
-		case: // or: R[rd] = R[rs] | R[rt]
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue | IDEX_reg.regRTvalue;
-			shadow_EXMEMreg.regWB = IDEX_reg.regRD;
-			break;
-		case: // ori: R[rt] = R[rs] | ZeroExtImm
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue | IDEX_reg.zeroExtImm; // TODO change from passing in zeroExtImm to calculating it in EX stage???
-			shadow_EXMEMreg.regWB = IDEX_reg.regRT;
-			break;
-		case: // slt: R[rd] = (R[rs] < R[rt]) ? 1: 0
-			if (IDEX_reg.regRSvalue < IDEX_reg.regRTvalue) shadow_EXMEMreg.resultALU = 1;
-			else shadow_EXMEMreg.resultALU = 0;
-			shadow_EXMEMreg.regWB = IDEX_reg.regRD;
-			break;
-		case: // slti: R[rt] = ( R[rs] < SignExtImm)? 1 : 0
-			if (IDEX_reg.regRSvalue < IDEX_reg.signExtImm) shadow_EXMEMreg.resultALU = 1;
-			else shadow_EXMEMreg.resultALU = 0;
-			shadow_EXMEMreg.regWB = IDEX_reg.regRT;
-			break;
-		case: // TODO mips green sheet same as slti?? 
-			break;
-		case: // sltu: R[rd] = (R[rs] < R[rt])? 1: 0
-			if (IDEX_reg.regRSvalue < IDEX_reg.regRTvalue) shadow_EXMEMreg.resultALU = 1;
-			else shadow_EXMEMreg.resultALU = 0;
-			shadow_EXMEMreg.regWB = IDEX_reg.regRD;
-			break;
-		case: // sll: R[rd] = R[rt] << shamt
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRTvalue << IDEX_reg.shamt;
-			shadow_EXMEMreg.regWB = IDEX_reg.regRD;
-			break;
-		case: // srl: R[rd] = R[rt] >> shamt
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRTvalue >> IDEX_reg.shamt;
-			shadow_EXMEMreg.regWB = IDEX_reg.regRD;
-			break;
-		case: // sb: M[R[rs]+SignExtImm](7:0) = R[rt](7:0)
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue + IDEX_reg.signExtImm;
-			shadow_EXMEMreg.regRTvalue = IDEX_reg.regRTvalue;
-			// TODO bitmask here or in mem stage?
-			break;
-		case: // sc TODO??? atomic??
-			break;
-		case: // sh: M[R[rs]+SignExtImm](15:0) = R[rt](15:0)
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue + IDEX_reg.signExtImm;
-			shadow_EXMEMreg.regRTvalue = IDEX_reg.regRTvalue;
-			// TODO do the bit mask here or in MEM stage?
-			break;
-		case: // sw: M[R[rs] + SignExtImm] = R[rt]
-			shadow_EXMEMreg.resultALU = IDEX_reg.regRSvalue + IDEX_reg.signExtImm;
-			shadow_EXMEMreg.regRTvalue = IDEX_reg.regRTvalue;
-			break;
-		case: // sub: R[rd] = R[rs] - R[rt]
-			shadow_EXMEMreg.resultALu = IDEX_reg.regRSvalue - IDEX_reg.regRTvalue;
-			shadow_EXMEMreg.regWB = IDEX_reg.regRD;
-			break;
-		case: // subu R[rd] = R[rs] - R[rt] TODO same as sub???
-			break;
-		case: // div Lo=R[rs]/R[rt]; Hi=R[rs]%R[rt]
-			lo = IDEX_reg.regRSvalue / IDEX_reg.regRTvalue;
-			hi =  IDEX_reg.regRSvalue % IDEX_reg.regRTvalue;
-			break;
-		case: // divu Lo=R[rs]/R[rt]; Hi=R[rs]%R[rt]
-			lo = (uint32_t)IDEX_reg.regRSvalue / (uint32_t)IDEX_reg.regRTvalue;
-			hi =  (uint32_t)IDEX_reg.regRSvalue % (uint32_t)IDEX_reg.regRTvalue;
-			break;
-		case: //mfhi R[rd] = Hi
-			shadow_EXMEMreg.regRDvalue = hi;
-			break;
-		case: //mflo
-			shadow_EXMEMreg.regRDvalue = lo;
-			break;
-		case: //mult {Hi,Lo} = R[rs]*R[rt]
-			lo = IDEX_reg.regRSvalue * IDEX_reg.regRTvalue;
-			hi = lo;
-			break;
-		case: //multu {Hi,Lo} = R[rs]*R[rt]
-			lo = (uint32_t)IDEX_reg.regRSvalue * (uint32_t)IDEX_reg.regRTvalue;
-			hi = lo;
-			break;
-		case: //sra R[rd] = R[rt]>>>shamt
-			if (IDEX_reg.regRTvalue[31] == 1) { //if MSB is 1 (negative), we must one-fill instead of zero-fill
-				shadow_EXMEMreg.resultALU = IDEX_reg.regRTvalue >> IDEX_reg.shamt;
-				shadow_EXMEMreg.resultALU += (int)(shadow_EXMEMreg.resultALU + (0x1111111100000000 >> IDEX_reg.shamt));
-			}
-			else {
-				shadow_EXMEMreg.resultALU = IDEX_reg.regRTvalue >> IDEX_reg.shamt;
-			}
-			shadow_EXMEMreg.regWB = IDEX_reg.regRD;
-			break;
-	
-
-	}
-	// End switch(IDEX_reg.ALUop)
-}
-*/
 
 void memoryAccess() {
+	if ((MEMWBreg.regWrite && MEMWBreg.regRD != 0) && (MEMWBreg.regRD == IDEXreg.regRS)) {
+		//Forward here MEM hazard
+		//ForwardA = 01;
+	}
+	if ((MEMWBreg.regWrite && MEMWBreg.regRD != 0) && (MEMWBreg.regRD == IDEXreg.regRT)) {
+		//Forward here MEM hazard
+		//ForwardB = 01;
+	}
 
 }
 
