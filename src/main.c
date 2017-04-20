@@ -81,12 +81,12 @@ typedef struct {
 	unsigned int regWB;			// register to write back to
 } MEMWB_PIPELINE_REG;
 
-int memory[10000];
+extern int memory[1200];
 
 int regFile[32];
 int lo,hi;
 
-int pc = 0;
+extern int pc = 0;
 
 // Declare our shadow and actual pipeline registers: 
 
