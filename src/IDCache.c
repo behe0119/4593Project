@@ -13,6 +13,7 @@ int i_Size, d_Size, b_Size;
 
 typedef struct {
 	int dirty;
+	int valid;
 	int tag;
 	int bIndex;
 	int bOffset;
@@ -41,26 +42,57 @@ void IDcacheInsert(int memLoc, int I0orD1) {
 	bIndex = (memLoc % i_Size) / b_Size;
 	bOffset = (memLoc % i_Size) % b_Size;
 
-	if (I0orD1 == 0) { //Instruction cache insert
+	if (I0orD1 == 0) { ///////////////////Instruction cache insert
 
 		for (int bOff = 0; bOff < (b_Size-1); bOff++) {
 			iCache[bIndex + bOff].data = memory[memLoc + bOff];
 		}
 		iCache[bIndex].dirty = 1;
+		iCache[bIndex].valid = 1;
 		return;
 	}
-	else {  //Data cache insert
+	else {  /////////////////////////////////Data cache insert
 		if (dCache[bIndex].dirty) {
 			for (int bOff = 0; bOff < (b_Size-1); bOff++) {
 				cacheWriteToMain(bIndex, tag, bOff); //write data back to main memory if dirty
 			}
 		}
-		for (int bOff = 0; bOff < (b_Size-1); bOff++) { //i represents block offset
+		for (int bOff = 0; bOff < (b_Size-1); bOff++) { //fill cache block now that dirty data has been written back
 			dCache[bIndex + bOff].data = memory[memLoc + bOff];
 		}
 		dCache[bIndex].dirty = 1;
+		dCache[bIndex].valid = 1;
 	}
 	return;
+}
+
+int IDcacheGrab(int memLoc, int I0orD1) {
+	tag = memLoc / i_Size;
+	bIndex = (memLoc % i_Size) / b_Size;
+	bOffset = (memLoc % i_Size) % b_Size;
+
+	if (I0orD1 == 0) { //////////////////////instruction grab
+		if (iCache[bIndex].valid && iCache[bIndex + bOffset].tag == tag){ //correct data in cache so return it
+			hit++;
+			return iCache[bIndex + bOffset];
+		}
+		else { //if valid == 0 or the tag doesnt match then we have to load the block, then grab again
+			miss++;
+			IDcacheInsert(memLoc, I0orD1);
+			return IDcacheGrab(memLoc, I0orD1);
+		}
+	}
+	else { /////////////////////////////////data grab
+		if (dCache[bIndex].valid && dCache[bIndex + bOffset].tag == tag){ //correct data in cache, return it
+			hit++;
+			return dCache[bIndex + bOffset];
+		}
+		else { //if valid == 0 or tag doesnt match then we have to load the block, then grab again
+			miss++;
+			IDcacheInsert(memLoc, I0orD1);
+			return IDcacheGrab(memLoc, I0orD1);
+		}
+	}
 }
 
 void cacheWriteToMain(int bIndex, int tag, int bOff) {
